@@ -22,9 +22,9 @@ namespace LazyCoder.View
             return _views.Count <= 0 ? null : _views.Last();
         }
 
-        private void PopTopView()
+        private void RemoveView(View view)
         {
-            _views.Pop();
+            _views.Remove(view);
         }
 
         private void RevealTopView()
@@ -41,24 +41,12 @@ namespace LazyCoder.View
             topView?.Block();
         }
 
-        private bool CanPushNewView(object view)
-        {
-            // Can't push another view when it is transiting
-            if (_isTransiting)
-            {
-                LDebug.Log<ViewContainer>($"Another View is transiting, can't push any new view {view}");
-                return false;
-            }
-
-            return true;
-        }
-
-        private void OpenView(View view)
+        private void AddView(View view)
         {
             BlockTopView();
 
             // Handle view callback
-            view.OnCloseStart.AddListener(PopTopView);
+            view.OnCloseStart.AddListener(() => { RemoveView(view); });
             view.OnCloseEnd.AddListener(() =>
             {
                 Destroy(view.GameObjectCached);
@@ -69,7 +57,7 @@ namespace LazyCoder.View
             // Open new view
             view.Open();
 
-            // Push new view into stack
+            // Add new view into list
             _views.Add(view);
         }
 
@@ -77,10 +65,13 @@ namespace LazyCoder.View
 
         #region Function -> Public
 
-        public async UniTask<View> PushAsync(AssetReference viewAsset, CancellationToken cancelToken = new CancellationToken())
+        public async UniTask<View> PushAsync(AssetReference viewAsset, CancellationToken cancellationToken)
         {
-            if (!CanPushNewView(viewAsset))
+            if (!CanPushNewView())
+            {
+                LDebug.Log<ViewContainer>($"Another View is transiting, can't push any new view {viewAsset}");
                 return null;
+            }
 
             // Set transiting flag
             _isTransiting = true;
@@ -88,7 +79,7 @@ namespace LazyCoder.View
             // Wait new view to be loaded
             var handle = Addressables.LoadAssetAsync<GameObject>(viewAsset);
 
-            await handle.WithCancellation(cancelToken);
+            await handle.WithCancellation(cancellationToken);
 
             // Spawn view object from loaded asset
             View view = handle.Result.Create(TransformCached, false).GetComponent<View>();
@@ -97,7 +88,7 @@ namespace LazyCoder.View
             // Release asset when view closed
             view.OnCloseEnd.AddListener(() => { handle.Release(); });
 
-            OpenView(view);
+            AddView(view);
 
             _isTransiting = false;
 
@@ -106,16 +97,24 @@ namespace LazyCoder.View
 
         public View Push(GameObject viewPrefab)
         {
-            if (!CanPushNewView(viewPrefab))
+            if (!CanPushNewView())
+            {
+                LDebug.Log<ViewContainer>($"Another View is transiting, can't push any new view {viewPrefab}");
                 return null;
+            }
 
             // Spawn view object from prefab
             View view = viewPrefab.Create(TransformCached, false).GetComponent<View>();
             view.GameObjectCached.SetActive(false);
 
-            OpenView(view);
+            AddView(view);
 
             return view;
+        }
+
+        public bool CanPushNewView()
+        {
+            return !_isTransiting;
         }
 
         #endregion

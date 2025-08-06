@@ -5,6 +5,7 @@ using Sirenix.OdinInspector;
 using Cysharp.Threading.Tasks;
 using System.Diagnostics;
 using LazyCoder.Core;
+using System.Threading;
 
 namespace LazyCoder.View
 {
@@ -124,11 +125,8 @@ namespace LazyCoder.View
             _sequence.SetAutoKill(false);
         }
 
-        private async UniTask ProcessOpen(bool isReveal)
+        private async UniTask ProcessOpen(bool isReveal, CancellationToken cancellationToken)
         {
-            // Handle cancel token
-            _cancelToken.Cancel();
-
             ConstructSequence();
 
             // Open start callback
@@ -150,7 +148,7 @@ namespace LazyCoder.View
                 _sequence.Restart();
                 _sequence.Play();
 
-                await UniTask.WaitForSeconds(_openDuration, true, cancellationToken: _cancelToken.Token);
+                await UniTask.WaitForSeconds(_openDuration, true, cancellationToken: cancellationToken);
             }
             else
             {
@@ -166,11 +164,8 @@ namespace LazyCoder.View
             _canvasGroup.interactable = true;
         }
 
-        private async UniTask ProcessClose(bool isHiding)
+        private async UniTask ProcessClose(bool isHiding, CancellationToken cancellationToken)
         {
-            // Handle cancel token
-            _cancelToken.Cancel();
-
             ConstructSequence();
 
             // Close start callback
@@ -188,7 +183,7 @@ namespace LazyCoder.View
                 _sequence.Complete();
                 _sequence.PlayBackwards();
 
-                await UniTask.WaitForSeconds(_closeDuration, true, cancellationToken: _cancelToken.Token);
+                await UniTask.WaitForSeconds(_closeDuration, true, cancellationToken: cancellationToken);
             }
             else
             {
@@ -231,12 +226,16 @@ namespace LazyCoder.View
 
         public void Open()
         {
-            ProcessOpen(false).Forget();
+            _cancelToken.Cancel();
+
+            ProcessOpen(false, _cancelToken.Token).Forget();
         }
 
         public void Close()
         {
-            ProcessClose(false).Forget();
+            _cancelToken.Cancel();
+
+            ProcessClose(false, _cancelToken.Token).Forget();
         }
 
         public void Reveal()
@@ -244,7 +243,11 @@ namespace LazyCoder.View
             _canvasGroup.interactable = true;
 
             if (_hideOnBlock)
-                ProcessOpen(true).Forget();
+            {
+                _cancelToken.Cancel();
+
+                ProcessOpen(true, _cancelToken.Token).Forget();
+            }
         }
 
         public void Block()
@@ -252,7 +255,11 @@ namespace LazyCoder.View
             _canvasGroup.interactable = false;
 
             if (_hideOnBlock)
-                ProcessClose(true).Forget();
+            {
+                _cancelToken.Cancel();
+
+                ProcessClose(true, _cancelToken.Token).Forget();
+            }
         }
 
         #endregion
