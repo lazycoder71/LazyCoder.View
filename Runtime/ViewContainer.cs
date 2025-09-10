@@ -13,7 +13,9 @@ namespace LazyCoder.View
 
         private bool _isTransiting = false;
 
-        protected override bool PersistAcrossScenes { get { return false; } }
+        public int ViewCount => _views.Count;
+        
+        protected override bool PersistAcrossScenes => false;
 
         #region Function -> Private
 

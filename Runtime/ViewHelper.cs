@@ -21,5 +21,10 @@ namespace LazyCoder.View
         {
             return ViewContainer.Instance.TransformCached;
         }
+
+        public static int GetViewCount()
+        {
+            return ViewContainer.Instance.ViewCount;
+        }
     }
 }
